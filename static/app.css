@@ -1,0 +1,293 @@
+/* デザイン上の数値はすべてここに集約する。個別のルールに数値を直接書かない。 */
+:root {
+  --screen-w: 800px;  --screen-h: 480px;
+  --pad: 24px;        --gap: 20px;      --row-gap: 12px;
+  --art-size: 300px;  --art-radius: 8px;
+  --fg: #f2f2f2;      --fg-dim: #9a9a9a;
+  --bg: #0d0d0f;      --accent: #4ea1ff;
+  --btn-bg: #1c1c22;
+  --title-size: 34px; --artist-size: 24px; --album-size: 18px;
+  --vol-size: 28px;
+  /* 音量とミュートは副操作、再生と曲送りは主操作として大きさを分ける */
+  --btn-size: 72px;      --icon-size: 32px;
+  --btn-size-lg: 104px;  --icon-size-lg: 48px;
+  /* 電源は常用しないので目立たせない。タッチ領域だけは他と同じ大きさを保つ */
+  --btn-size-sm: 64px;   --icon-size-sm: 20px;
+  --dialog-bg: rgba(0, 0, 0, 0.88);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: var(--screen-w);
+  height: var(--screen-h);
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, sans-serif;
+  touch-action: manipulation;
+  user-select: none;
+  overscroll-behavior: none;
+  cursor: none;
+}
+
+body { display: flex; flex-direction: column; }
+
+/* 開発時は dev バーを 800x480 の外に置く。画面本体の寸法を実機と同じに保つため */
+:root[data-dev="yes"],
+:root[data-dev="yes"] body { height: auto; overflow: visible; }
+
+.screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: var(--screen-w);
+  height: var(--screen-h);
+  gap: var(--gap);
+  padding: var(--pad);
+}
+
+.stage {
+  display: flex;
+  flex: 1;
+  gap: var(--gap);
+  min-height: 0;
+}
+
+/* --- 音量とミュート（左端に縦並び） --- */
+
+.side {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.volume {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--row-gap);
+}
+
+.volume__value {
+  font-size: var(--vol-size);
+  text-align: center;
+  min-width: 3ch;
+}
+
+:root[data-muted="true"] .volume__value {
+  color: var(--accent);
+  text-decoration: line-through;
+}
+
+/* --- アルバムアート --- */
+
+.art {
+  flex: none;
+  width: var(--art-size);
+  height: var(--art-size);
+}
+
+.art img,
+.art__placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--art-radius);
+  object-fit: contain;
+}
+
+.art__placeholder {
+  background: url("/static/placeholder.svg") center / 50% no-repeat;
+}
+
+:root[data-art="yes"] .art__placeholder { display: none; }
+:root[data-art="no"] .art img { display: none; }
+
+/* --- テキスト --- */
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--row-gap);
+  min-width: 0;
+}
+
+/* 800x480 に収めるため行数を固定する。溢れた分は省略記号で切る */
+.title, .artist, .album {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.title { -webkit-line-clamp: 2; }
+
+.title  { font-size: var(--title-size); }
+.artist { font-size: var(--artist-size); color: var(--fg-dim); }
+.album  { font-size: var(--album-size); color: var(--fg-dim); }
+
+.status { font-size: var(--album-size); color: var(--fg-dim); }
+.status::before { content: "Stopped"; }
+:root[data-status="play"]  .status::before { content: "Playing"; }
+:root[data-status="pause"] .status::before { content: "Paused"; }
+
+/* 通信状態は本文を減らして示す。表示は空にせず前回値を出し続ける */
+:root[data-conn="stale"] .screen { opacity: 0.6; }
+:root[data-conn="down"]  .screen { opacity: 0.35; }
+:root[data-conn="down"]  .status::after { content: " / Offline"; color: var(--accent); }
+
+/* --- 操作 --- */
+
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: var(--gap);
+}
+
+.screen button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--btn-size);
+  height: var(--btn-size);
+  border: 0;
+  border-radius: var(--art-radius);
+  background: var(--btn-bg);
+  color: var(--fg);
+  cursor: none;
+}
+
+.screen button:active { background: var(--accent); }
+
+/* アイコンはマスクとして使う。SVG 側の色は無視され、この color が塗られる */
+.screen button::before {
+  content: "";
+  width: var(--icon-size);
+  height: var(--icon-size);
+  background-color: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+.controls button { width: var(--btn-size-lg); height: var(--btn-size-lg); }
+.controls button::before { width: var(--icon-size-lg); height: var(--icon-size-lg); }
+
+[data-action="vol-up"] { --icon: url("/static/icons/plus.svg"); }
+[data-action="vol-down"] { --icon: url("/static/icons/minus.svg"); }
+
+[data-action="prev"] { --icon: url("/static/icons/prev.svg"); }
+[data-action="next"] { --icon: url("/static/icons/next.svg"); }
+
+[data-action="playpause"] { --icon: url("/static/icons/play.svg"); }
+:root[data-status="play"] [data-action="playpause"] { --icon: url("/static/icons/pause.svg"); }
+
+[data-action="mute"] { --icon: url("/static/icons/volume.svg"); }
+:root[data-muted="true"] [data-action="mute"] { --icon: url("/static/icons/mute.svg"); }
+
+/* --- 電源 --- */
+
+.power {
+  position: absolute;
+  left: var(--pad);
+  bottom: var(--pad);
+  width: var(--btn-size-sm);
+  height: var(--btn-size-sm);
+  background: transparent;
+  color: var(--fg-dim);
+  --icon: url("/static/icons/power.svg");
+}
+
+.power::before { width: var(--icon-size-sm); height: var(--icon-size-sm); }
+
+:root:not([data-power="yes"]) .power { display: none; }
+
+.dialog {
+  display: none;
+  position: fixed;
+  inset: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap);
+  background: var(--dialog-bg);
+}
+
+:root[data-dialog] .dialog { display: flex; }
+
+.dialog__text { font-size: var(--artist-size); }
+
+:root[data-dialog="power"]    .dialog__text::before { content: "System"; }
+:root[data-dialog="poweroff"] .dialog__text::before { content: "Shutting down\2026"; }
+:root[data-dialog="reboot"]   .dialog__text::before { content: "Restarting\2026"; }
+
+.dialog__buttons { display: flex; gap: var(--gap); }
+
+.diag {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: var(--row-gap) var(--gap);
+  font-size: var(--album-size);
+}
+
+.diag dt { color: var(--fg-dim); }
+
+/* 判定は data-throttle、生の値は要素のテキストとして並べる */
+.diag__throttle::before { content: "unknown "; }
+:root[data-throttle="ok"]   .diag__throttle::before { content: "OK "; }
+:root[data-throttle="past"] .diag__throttle::before { content: "Warning (past) "; }
+:root[data-throttle="now"]  .diag__throttle::before { content: "Warning (active) "; }
+
+:root[data-throttle="past"] .diag__throttle,
+:root[data-throttle="now"]  .diag__throttle { color: var(--accent); }
+
+/* 実行を受け付けた後は取り消せないので、選択肢を残さない */
+:root[data-dialog="poweroff"] .dialog__buttons,
+:root[data-dialog="reboot"]   .dialog__buttons,
+:root[data-dialog="poweroff"] .diag,
+:root[data-dialog="reboot"]   .diag { display: none; }
+
+.dialog button {
+  min-width: 180px;
+  height: var(--btn-size);
+  border: 0;
+  border-radius: var(--art-radius);
+  background: var(--btn-bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--album-size);
+  cursor: none;
+}
+
+.dialog button:active { background: var(--accent); }
+
+/* --- 開発モード --- */
+
+.dev-bar { display: none; }
+
+:root[data-dev="yes"] .dev-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: #202028;
+  font-size: 12px;
+}
+
+.dev-bar button {
+  border: 0;
+  background: #33333d;
+  color: var(--fg);
+  font: inherit;
+  padding: 4px 8px;
+}
+
+.dev-bar button:active { background: var(--accent); }
+
+/* 実機の表示領域を枠で示す。outline は既定で要素の外側に描かれ、
+   画面の縁と重なると overflow で切られるため内側にずらす */
+:root[data-frame="yes"] .screen {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}

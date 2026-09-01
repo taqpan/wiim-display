@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wiim-display"
+version = "0.1.0"
+description = "WiiM Pro の再生状態を Raspberry Pi の小型タッチモニターに表示する"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "taqpan" }]
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.9",
+    "Pillow>=10.0",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tools"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+# 日本語のコメントと docstring に含まれる全角記号を ASCII との混同として検出するため無効化する
+ignore = ["RUF001", "RUF002", "RUF003"]

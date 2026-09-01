@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=800, height=480, initial-scale=1">
+<title>wiim-display</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<div class="screen">
+
+  <div class="stage">
+
+    <div class="side">
+      <button data-action="mute"></button>
+      <div class="volume">
+        <button data-action="vol-up"></button>
+        <div class="volume__value" data-slot="vol"></div>
+        <button data-action="vol-down"></button>
+      </div>
+    </div>
+
+    <div class="art">
+      <img data-slot="art" alt="">
+      <div class="art__placeholder"></div>
+    </div>
+
+    <div class="info">
+      <div class="title" data-slot="title"></div>
+      <div class="artist" data-slot="artist"></div>
+      <div class="album" data-slot="album"></div>
+      <div class="status"></div>
+    </div>
+
+  </div>
+
+  <div class="controls">
+    <button data-action="prev"></button>
+    <button data-action="playpause"></button>
+    <button data-action="next"></button>
+  </div>
+
+  <button class="power" data-action="power-open"></button>
+
+</div>
+
+<div class="dialog">
+  <p class="dialog__text"></p>
+
+  <dl class="diag">
+    <dt>Host</dt><dd data-slot="diag-host"></dd>
+    <dt>Address</dt><dd data-slot="diag-ip"></dd>
+    <dt>Power</dt><dd class="diag__throttle" data-slot="diag-throttle"></dd>
+    <dt>Temp</dt><dd data-slot="diag-temp"></dd>
+    <dt>Memory</dt><dd data-slot="diag-mem"></dd>
+  </dl>
+
+  <div class="dialog__buttons">
+    <button data-action="power-off">Shut down</button>
+    <button data-action="power-reboot">Restart</button>
+    <button data-action="power-cancel">Cancel</button>
+  </div>
+</div>
+
+<div class="dev-bar">
+  <button data-mock="">live</button>
+  <button data-mock="normal">normal</button>
+  <button data-mock="long_title_ja">long_title_ja</button>
+  <button data-mock="long_artist">long_artist</button>
+  <button data-mock="no_art">no_art</button>
+  <button data-mock="muted">muted</button>
+  <button data-mock="vol_0">vol_0</button>
+  <button data-mock="vol_100">vol_100</button>
+  <button data-mock="stopped">stopped</button>
+  <button data-mock="stale">stale</button>
+  <button data-mock="down">down</button>
+  <button data-mock="ascii_only">ascii_only</button>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

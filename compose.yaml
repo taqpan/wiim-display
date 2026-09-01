@@ -1,0 +1,18 @@
+name: wiim-display
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    image: wiim-display-dev
+    working_dir: /app
+    # 環境変数は config.py が /app/.env から読み込む。env_file は使わない
+    # （読み込み経路を1つに保つため。docs/setup-pi.md §7.1 と同じ方針）
+    volumes:
+      - .:/app
+    ports:
+      - "${SERVER_PORT:-8080}:${SERVER_PORT:-8080}"
+    stop_grace_period: 3s

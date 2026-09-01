@@ -1,0 +1,217 @@
+version: '3'
+
+# コンテナ外（WSL2 ホスト）から開発用コンテナを操作するタスク。
+# Python の実行はすべてコンテナ内で行い、ホスト側に venv を作らない。
+
+env:
+  UID:
+    sh: id -u
+  GID:
+    sh: id -g
+
+vars:
+  COMPOSE: docker compose
+  PI_DIR: /opt/wiim-display
+  # 使い捨てのコンテナで実行する。run は既定でポートを公開しないため dev と同時に動かせる
+  RUN: docker compose run --rm --no-deps app
+
+tasks:
+  default:
+    desc: タスク一覧を表示する
+    cmds:
+      - task --list
+    silent: true
+
+  setup:
+    desc: .env を用意してイメージをビルドする
+    cmds:
+      - task: env
+      - task: build
+
+  env:
+    desc: .env が無ければ .env.example から作る
+    status:
+      - test -f .env
+    cmds:
+      - cp .env.example .env
+      - echo ".env を作成しました。WIIM_HOST と開発用の値を確認してください"
+
+  build:
+    desc: 開発用イメージをビルドする
+    cmds:
+      - "{{.COMPOSE}} build"
+
+  dev:
+    desc: サーバを起動する（Ctrl-C で停止）
+    cmds:
+      - "{{.COMPOSE}} up --remove-orphans"
+
+  down:
+    desc: コンテナを停止して削除する
+    cmds:
+      - "{{.COMPOSE}} down --remove-orphans"
+
+  logs:
+    desc: サーバのログを追尾する
+    cmds:
+      - "{{.COMPOSE}} logs -f app"
+
+  shell:
+    desc: コンテナ内のシェルに入る
+    cmds:
+      - "{{.RUN}} bash"
+
+  deploy:
+    desc: |
+      アプリケーションを実機へ転送し、サーバとキオスクを再起動する
+      宛先を引数で指定する: task deploy -- pi@wiim-display.local
+    summary: |
+      src / static / tools / pyproject.toml / .env.example を実機へ転送し、
+      サーバとキオスクを再起動する。
+
+      実機の .env は転送しない。実機側の設定を変えるときは Pi 上で直接編集する。
+      依存が変わった場合は続けて deploy:deps を実行する。
+
+      例:
+        task deploy -- pi@wiim-display.local
+        task deploy -- pi@192.168.1.50
+    preconditions:
+      - sh: '[ -n "{{.CLI_ARGS}}" ]'
+        msg: '宛先を指定すること: task deploy -- pi@wiim-display.local'
+    cmds:
+      - scp -r -C src static tools pyproject.toml .env.example {{.CLI_ARGS}}:{{.PI_DIR}}/
+      - ssh {{.CLI_ARGS}} sudo systemctl restart wiim-display
+      - ssh {{.CLI_ARGS}} sudo systemctl restart wiim-kiosk
+
+  deploy:static:
+    desc: |
+      static/ だけを実機へ転送し、キオスクを再起動する
+      宛先を引数で指定する: task deploy:static -- pi@wiim-display.local
+    summary: |
+      画面デザインの調整で繰り返す経路。サーバの再起動を伴わないため速い。
+
+      例:
+        task deploy:static -- pi@wiim-display.local
+    preconditions:
+      - sh: '[ -n "{{.CLI_ARGS}}" ]'
+        msg: '宛先を指定すること: task deploy:static -- pi@wiim-display.local'
+    cmds:
+      - scp -r -C static {{.CLI_ARGS}}:{{.PI_DIR}}/
+      - ssh {{.CLI_ARGS}} sudo systemctl restart wiim-kiosk
+
+  deploy:deps:
+    desc: |
+      実機で依存を再インストールし、サーバを再起動する
+      宛先を引数で指定する: task deploy:deps -- pi@wiim-display.local
+    summary: |
+      pyproject.toml の依存を変更したときに実行する。deploy とは分けてあり、
+      通常の更新では実行されない。
+
+      例:
+        task deploy:deps -- pi@wiim-display.local
+    preconditions:
+      - sh: '[ -n "{{.CLI_ARGS}}" ]'
+        msg: '宛先を指定すること: task deploy:deps -- pi@wiim-display.local'
+    cmds:
+      - ssh {{.CLI_ARGS}} 'cd {{.PI_DIR}} && .venv/bin/pip install -e .'
+      - ssh {{.CLI_ARGS}} sudo systemctl restart wiim-display
+
+  pi:logs:
+    desc: |
+      実機のサーバとキオスクのログを追尾する
+      宛先を引数で指定する: task pi:logs -- pi@wiim-display.local
+    preconditions:
+      - sh: '[ -n "{{.CLI_ARGS}}" ]'
+        msg: '宛先を指定すること: task pi:logs -- pi@wiim-display.local'
+    cmds:
+      - ssh -t {{.CLI_ARGS}} journalctl -u wiim-display -u wiim-kiosk -f
+
+  lint:
+    desc: ruff で検査する
+    cmds:
+      - "{{.RUN}} ruff check ."
+      - "{{.RUN}} ruff format --check ."
+
+  fmt:
+    desc: ruff で整形し、自動修正できる指摘を直す
+    cmds:
+      - "{{.RUN}} ruff check --fix ."
+      - "{{.RUN}} ruff format ."
+
+  probe:
+    desc: .env の WIIM_HOST へ疎通確認する
+    cmds:
+      - "{{.RUN}} python -m tools.check probe"
+
+  api:status:
+    desc: getPlayerStatus のレスポンスが想定どおりか検証する
+    cmds:
+      - "{{.RUN}} python -m tools.check status {{.CLI_ARGS}}"
+
+  api:meta:
+    desc: getMetaInfo のレスポンスとアルバムアートの到達性を検証する
+    cmds:
+      - "{{.RUN}} python -m tools.check meta {{.CLI_ARGS}}"
+
+  api:all:
+    desc: 読み取り系のコマンドをまとめて検証し、生レスポンスを保存する
+    cmds:
+      - "{{.RUN}} python -m tools.check all --save"
+
+  api:cmd:
+    desc: |
+      setPlayerCmd を送り、反映までの時間を測る（WiiM の再生状態が変わる）
+      操作: play / pause / resume / next / prev / vol <0-100> / mute <0|1>
+    summary: |
+      setPlayerCmd を1回送り、状態が変化するまでの時間を範囲で表示する。
+      WiiM の再生状態が実際に変わるため、再生中に実行するときは注意すること。
+
+      有効な操作:
+        play           再生を開始する
+        pause          一時停止する
+        resume         一時停止から再開する
+        next           次の曲へ送る
+        prev           前の曲へ戻る
+        vol <0-100>    音量を絶対値で指定する
+        mute <0|1>     1 でミュート、0 で解除
+
+      next / prev は AirPlay 等の外部ソース経由の場合、ソースアプリの対応状況に
+      依存する。
+
+      オプション:
+        --interval <秒>  getPlayerStatus の取得間隔。既定 0.1。小さくすると
+                         反映時間の範囲が狭まるが、WiiM への要求は増える
+        --wait <秒>      状態変化を待つ上限。既定 5.0
+
+      例:
+        task api:cmd -- pause
+        task api:cmd -- vol 40
+        task api:cmd -- mute 1
+        task api:cmd -- next --interval 0.02
+    cmds:
+      - "{{.RUN}} python -m tools.check command {{.CLI_ARGS}}"
+
+  api:latency:
+    desc: |
+      2つのコマンドを交互に送り、反映時間の分布を出す（WiiM の再生状態が変わる）
+      操作は api:cmd と同じだが、引数は vol:40 のようにコロンで繋ぐ
+    summary: |
+      2つのコマンドを交互に送り、反映時間の分布を出す。同じコマンドを続けても
+      状態が変化せず反映を観測できないため、状態を往復させる2つを指定する。
+
+      操作は api:cmd と同じ（play / pause / resume / next / prev / vol / mute）だが、
+      引数はコロンで繋いで1語にする。vol 40 ではなく vol:40 と書く。
+
+      音を止めずに計測するには、音量を1段だけ往復させるとよい。
+
+      オプション:
+        --repeat <回数>  計測回数。既定 20。偶数にすると元の状態に戻る
+        --settle <秒>    コマンド間の待機。既定 1.0
+        --interval <秒>  getPlayerStatus の取得間隔。既定 0.0
+        --wait <秒>      1回あたり状態変化を待つ上限。既定 5.0
+
+      例:
+        task api:latency -- pause resume
+        task api:latency -- vol:49 vol:50 --repeat 30
+    cmds:
+      - "{{.RUN}} python -m tools.check latency {{.CLI_ARGS}}"

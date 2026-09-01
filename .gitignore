@@ -1,0 +1,41 @@
+# 環境依存の設定・秘匿情報（雛形の .env.example はコミットする）
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# テスト・静的解析
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# タスクランナー
+.task/
+
+# WiiM API 検証コマンドが保存した実機レスポンス
+tools/captured/
+
+# ログ
+*.log
+
+# エディタ
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code のローカル設定（.claude/CLAUDE.md はコミットする）
+.claude/settings.local.json
