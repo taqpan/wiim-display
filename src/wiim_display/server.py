@@ -282,7 +282,7 @@ def create_app(config: Config, root: Path) -> web.Application:
     app["config"] = config
     app["static_dir"] = root / "static"
     app["store"] = StateStore()
-    app["art"] = ArtCache(config.art_size, config.wiim_timeout)
+    app["art"] = ArtCache(config.art_size, config.wiim_timeout, config.wiim_host)
     app["client"] = None
     app["idle"] = IdleController(
         app["store"],

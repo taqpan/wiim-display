@@ -10,7 +10,9 @@ import asyncio
 import hashlib
 import io
 import logging
+import ssl
 from collections import OrderedDict
+from urllib.parse import urlsplit
 
 import aiohttp
 from PIL import Image
@@ -36,12 +38,25 @@ def _transcode(data: bytes, size: int) -> bytes:
 class ArtCache:
     """縮小済み JPEG をメモリ上に LRU で保持する。ディスクには書かない。"""
 
-    def __init__(self, size: int, timeout: float, capacity: int = CACHE_CAPACITY) -> None:
+    def __init__(
+        self, size: int, timeout: float, wiim_host: str, capacity: int = CACHE_CAPACITY
+    ) -> None:
         self._size = size
         self._capacity = capacity
         self._timeout = aiohttp.ClientTimeout(total=timeout)
+        self._wiim_host = wiim_host.split(":")[0].lower()
         self._items: OrderedDict[str, bytes] = OrderedDict()
         self._session: aiohttp.ClientSession | None = None
+
+        # DLNA 再生時、アートは WiiM 自身が自己署名証明書の HTTPS で配信する。
+        # 配信サービスのアートは公開 CDN 上にあるため、検証を切るのは WiiM 宛だけとする
+        self._wiim_ssl = ssl.create_default_context()
+        self._wiim_ssl.check_hostname = False
+        self._wiim_ssl.verify_mode = ssl.CERT_NONE
+
+    def _ssl_for(self, uri: str) -> ssl.SSLContext | bool:
+        host = (urlsplit(uri).hostname or "").lower()
+        return self._wiim_ssl if host == self._wiim_host else True
 
     async def start(self) -> None:
         self._session = aiohttp.ClientSession(timeout=self._timeout)
@@ -80,7 +95,7 @@ class ArtCache:
             raise RuntimeError("fetch() called before start()")
 
         try:
-            async with self._session.get(uri) as response:
+            async with self._session.get(uri, ssl=self._ssl_for(uri)) as response:
                 response.raise_for_status()
                 raw = await response.read()
         except (aiohttp.ClientError, TimeoutError) as e:
