@@ -2,18 +2,20 @@
 :root {
   --screen-w: 800px;  --screen-h: 480px;
   --pad: 24px;        --gap: 20px;      --row-gap: 12px;
+  --status-gap: 32px;
   --art-size: 300px;  --art-radius: 8px;
   --fg: #f2f2f2;      --fg-dim: #9a9a9a;
-  --bg: #0d0d0f;      --accent: #4ea1ff;
-  --btn-bg: #1c1c22;
+  --bg: #352e1c;      --bg-mid: #1b1914;  --bg-end: #0f0e0d;
+  --bg-angle: 160deg; --bg-mid-at: 35%;
+  --accent: #b49748;
+  --btn-bg: rgba(255, 255, 255, 0.1);
   --title-size: 34px; --artist-size: 24px; --album-size: 18px;
+  --title-lines: 3;   --artist-lines: 2;   --album-lines: 2;
   --vol-size: 28px;
-  /* 音量とミュートは副操作、再生と曲送りは主操作として大きさを分ける */
   --btn-size: 72px;      --icon-size: 32px;
   --btn-size-lg: 104px;  --icon-size-lg: 48px;
-  /* 電源は常用しないので目立たせない。タッチ領域だけは他と同じ大きさを保つ */
   --btn-size-sm: 64px;   --icon-size-sm: 20px;
-  --dialog-bg: rgba(0, 0, 0, 0.88);
+  --dialog-bg: rgba(0, 0, 0, 0.88);  --dialog-btn-bg: #1c1c22;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -39,6 +41,8 @@ body { display: flex; flex-direction: column; }
 
 .screen {
   position: relative;
+  background: linear-gradient(
+    var(--bg-angle), var(--bg), var(--bg-mid) var(--bg-mid-at), var(--bg-end));
   display: flex;
   flex-direction: column;
   width: var(--screen-w);
@@ -117,26 +121,29 @@ body { display: flex; flex-direction: column; }
 .title, .artist, .album {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
   overflow: hidden;
   overflow-wrap: anywhere;
+  line-height: 1.12;
 }
 
-.title { -webkit-line-clamp: 2; }
+.title  { -webkit-line-clamp: var(--title-lines); }
+.artist { -webkit-line-clamp: var(--artist-lines); }
+.album  { -webkit-line-clamp: var(--album-lines); }
 
 .title  { font-size: var(--title-size); }
 .artist { font-size: var(--artist-size); color: var(--fg-dim); }
 .album  { font-size: var(--album-size); color: var(--fg-dim); }
 
-.status { font-size: var(--album-size); color: var(--fg-dim); }
+.status { font-size: var(--album-size); color: var(--fg-dim); margin-top: var(--status-gap); }
 .status::before { content: "Stopped"; }
 :root[data-status="play"]  .status::before { content: "Playing"; }
 :root[data-status="pause"] .status::before { content: "Paused"; }
 
-/* 通信状態は本文を減らして示す。表示は空にせず前回値を出し続ける */
+/* 通信状態 */
 :root[data-conn="stale"] .screen { opacity: 0.6; }
 :root[data-conn="down"]  .screen { opacity: 0.35; }
-:root[data-conn="down"]  .status::after { content: " / Offline"; color: var(--accent); }
+:root[data-conn="down"]  .status { color: var(--accent); }
+:root[data-conn="down"]  .status::before { content: "Offline"; }
 
 /* --- 操作 --- */
 
@@ -253,7 +260,7 @@ body { display: flex; flex-direction: column; }
   height: var(--btn-size);
   border: 0;
   border-radius: var(--art-radius);
-  background: var(--btn-bg);
+  background: var(--dialog-btn-bg);
   color: var(--fg);
   font: inherit;
   font-size: var(--album-size);
