@@ -42,7 +42,7 @@ class Backlight:
 
 
 class IdleController:
-    """再生中でなく操作もない状態が続いたら消灯し、操作で復帰する。
+    """再生中でなく操作もない状態が続いたら消灯し、操作または再生の開始で復帰する。
 
     再生中は無操作が続いても消灯しない。再生が止まった時刻と最後に操作された時刻の
     新しいほうを起点として、`IDLE_TIMEOUT` を数える。
@@ -76,9 +76,12 @@ class IdleController:
 
     def _evaluate(self) -> None:
         now = asyncio.get_running_loop().time()
-        if self._store.get("status") == "play":
+        playing = self._store.get("status") == "play"
+        if playing:
             self._since = now
         if self._store.get("idle"):
+            if playing:
+                self._wake()
             return
         if now - self._since >= self._timeout:
             self._store.apply(idle=True)
