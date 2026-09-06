@@ -17,7 +17,7 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-JPEG_QUALITY = 82
+JPEG_QUALITY = 92
 CACHE_CAPACITY = 16
 
 
@@ -27,7 +27,9 @@ def _transcode(data: bytes, size: int) -> bytes:
         image.draft("RGB", (size, size))
         image.thumbnail((size, size), Image.Resampling.LANCZOS)
         buffer = io.BytesIO()
-        image.convert("RGB").save(buffer, "JPEG", quality=JPEG_QUALITY, optimize=True)
+        image.convert("RGB").save(
+            buffer, "JPEG", quality=JPEG_QUALITY, optimize=True, subsampling=0
+        )
         return buffer.getvalue()
 
 
