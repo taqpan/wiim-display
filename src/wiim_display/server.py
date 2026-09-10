@@ -133,19 +133,19 @@ async def handle_state(request: web.Request) -> web.Response:
         return web.json_response(state_payload(app))
 
     # シナリオは状態を置き換えず、その場の応答としてだけ返す
-    fields = mock.scenario(name)
+    fields = app["scenarios"].get(name)
     if fields is None:
         raise web.HTTPNotFound(text=f"unknown scenario: {name}")
     return web.json_response(state_payload(app, fields))
 
 
 async def handle_art(request: web.Request) -> web.Response:
-    art: ArtCache = request.app["art"]
-    data = art.get(request.match_info["key"])
-    if data is None:
+    cache: ArtCache = request.app["art"]
+    art = cache.get(request.match_info["key"])
+    if art is None:
         raise web.HTTPNotFound()
     return web.Response(
-        body=data,
+        body=art.data,
         content_type="image/jpeg",
         headers={"Cache-Control": ART_CACHE_CONTROL},
     )
@@ -239,14 +239,16 @@ async def _start_background(app: web.Application) -> None:
     config: Config = app["config"]
     art: ArtCache = app["art"]
     await art.start()
+    
+    if config.dev_mode or config.wiim_mock:
+        app["scenarios"] = mock.install(art, config.art_size)
 
     idle: IdleController = app["idle"]
     idle.start()
     app["idle_task"] = asyncio.create_task(idle.run())
 
     if config.wiim_mock:
-        art.put(mock.ART_KEY, mock.art_bytes(config.art_size))
-        app["store"].apply(**mock.SCENARIOS[mock.DEFAULT_SCENARIO])
+        app["store"].apply(**app["scenarios"][mock.DEFAULT_SCENARIO])
         app["client"] = None
         logger.info("mock mode: not connecting to WiiM")
         return
@@ -284,6 +286,7 @@ def create_app(config: Config, root: Path) -> web.Application:
     app["store"] = StateStore()
     app["art"] = ArtCache(config.art_size, config.wiim_timeout, config.wiim_host)
     app["client"] = None
+    app["scenarios"] = {}
     app["idle"] = IdleController(
         app["store"],
         Backlight(config.backlight_path),

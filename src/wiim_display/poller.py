@@ -11,7 +11,7 @@ import logging
 
 from .art import ArtCache
 from .config import Config
-from .state import CONN_DOWN, CONN_OK, CONN_STALE, StateStore
+from .state import CONN_DOWN, CONN_OK, CONN_STALE, NO_ART, StateStore
 from .wiim_client import PlayerStatus, WiimClient, WiimUnavailable
 
 logger = logging.getLogger(__name__)
@@ -115,21 +115,21 @@ class Poller:
         if meta.album_art_uri:
             self._start_art(meta.album_art_uri)
         else:
-            self._store.apply(art=None)
+            self._store.apply(**NO_ART)
 
     def _start_art(self, uri: str) -> None:
         """アートの取得は別タスクにする。取得の遅延で状態更新を止めないため。"""
-        cached = self._art.get(self._art.key_for(uri))
+        cached = self._art.cached(uri)
         if cached is not None:
-            self._store.apply(art=self._art.path_for(self._art.key_for(uri)))
+            self._store.apply(**cached)
             return
         if self._art_task and not self._art_task.done():
             self._art_task.cancel()
         self._art_task = asyncio.create_task(self._load_art(uri))
 
     async def _load_art(self, uri: str) -> None:
-        path = await self._art.fetch(uri)
-        self._store.apply(art=path)
+        fields = await self._art.fetch(uri)
+        self._store.apply(**(fields if fields else NO_ART))
 
     def _interval(self, status: PlayerStatus) -> float:
         # 消灯中は誰も見ていないため、さらに間隔を落とす

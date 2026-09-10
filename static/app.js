@@ -30,6 +30,17 @@ function setText(name, value) {
   }
 }
 
+// カスタムプロパティで色調を渡してCSS側で合成する
+function setTint(hue, chroma) {
+  if (hue === null || hue === undefined) {
+    root.style.removeProperty("--art-hue");
+    root.style.removeProperty("--art-chroma");
+    return;
+  }
+  root.style.setProperty("--art-hue", String(hue));
+  root.style.setProperty("--art-chroma", String(chroma));
+}
+
 function render(state) {
   current = state;
 
@@ -37,6 +48,7 @@ function render(state) {
   root.dataset.muted = String(state.muted);
   root.dataset.art = state.art ? "yes" : "no";
   root.dataset.conn = state.conn;
+  setTint(state.art_hue, state.art_chroma);
 
   setText("title", state.title);
   setText("artist", state.artist);
@@ -82,6 +94,12 @@ function applyState(state, force) {
   render(state);
 }
 
+function applyLive(state) {
+  if (!scenario) {
+    applyState(state, true);
+  }
+}
+
 async function poll(force) {
   const path = scenario ? `/api/state?mock=${encodeURIComponent(scenario)}` : "/api/state";
   let response;
@@ -109,7 +127,7 @@ async function send(action, value) {
     return;
   }
   if (response.ok) {
-    applyState(await response.json(), true);
+    applyLive(await response.json());
   }
 }
 
@@ -230,7 +248,7 @@ document.addEventListener("pointerdown", () => {
   lastWake = now;
   fetch("/api/wake", { method: "POST" })
     .then((response) => (response.ok ? response.json() : null))
-    .then((state) => state && applyState(state, true))
+    .then((state) => state && applyLive(state))
     .catch(() => {});
 });
 

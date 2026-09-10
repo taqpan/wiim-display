@@ -5,10 +5,18 @@
   --status-gap: 32px;
   --art-size: 300px;  --art-radius: 8px;
   --fg: #f2f2f2;      --fg-dim: #9a9a9a;
-  --bg: #352e1c;      --bg-mid: #1b1914;  --bg-end: #0f0e0d;
-  --bg-angle: 160deg; --bg-mid-at: 35%;
-  --accent: #b49748;
-  --btn-bg: rgba(255, 255, 255, 0.1);
+  /* 色相と鮮やかさはアルバムアートから app.js が上書きする。以下はアート未取得時の値 */
+  --art-hue: 43;      --art-chroma: 1;
+  /* --art-chroma が 1 のときの彩度。背景がどれだけアートの色に寄るかをここで決める */
+  --tint-sat: 31%;
+  --bg:     hsl(var(--art-hue) calc(var(--art-chroma) * var(--tint-sat))        18%);
+  --bg-mid: hsl(var(--art-hue) calc(var(--art-chroma) * var(--tint-sat) * 0.48) 10%);
+  --bg-end: hsl(var(--art-hue) calc(var(--art-chroma) * var(--tint-sat) * 0.23) 5.5%);
+  --bg-angle: 160deg; --bg-mid-at: 40%;
+  --accent: #b68e53;
+  --btn-bg: rgba(255, 255, 255, 0.08);
+  --btn-active-sat: 39%;
+  --btn-active: hsl(var(--art-hue) calc(var(--art-chroma) * var(--btn-active-sat)) 30%);
   --title-size: 34px; --artist-size: 24px; --album-size: 18px;
   --title-lines: 3;   --artist-lines: 2;   --album-lines: 2;
   --vol-size: 28px;
@@ -166,7 +174,7 @@ body { display: flex; flex-direction: column; }
   cursor: none;
 }
 
-.screen button:active { background: var(--accent); }
+.screen button:active { background: var(--btn-active); }
 
 /* アイコンはマスクとして使う。SVG 側の色は無視され、この color が塗られる */
 .screen button::before {

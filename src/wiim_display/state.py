@@ -8,6 +8,8 @@ CONN_OK = "ok"
 CONN_STALE = "stale"
 CONN_DOWN = "down"
 
+NO_ART: dict[str, Any] = {"art": None, "art_hue": None, "art_chroma": 0.0}
+
 _INITIAL: dict[str, Any] = {
     "status": "stop",
     "vol": 0,
@@ -15,9 +17,9 @@ _INITIAL: dict[str, Any] = {
     "title": "",
     "artist": "",
     "album": "",
-    "art": None,
     "conn": CONN_DOWN,
     "idle": False,
+    **NO_ART,
 }
 
 
