@@ -13,6 +13,14 @@
   --bg-mid: hsl(var(--art-hue) calc(var(--art-chroma) * var(--tint-sat) * 0.48) 10%);
   --bg-end: hsl(var(--art-hue) calc(var(--art-chroma) * var(--tint-sat) * 0.23) 5.5%);
   --bg-angle: 160deg; --bg-mid-at: 40%;
+  /* 波の形は static/wave-*.svg に置き、色はここで決める。
+     波線 (edge) から下端 (base) へのグラデーションで塗る。top は SVG のパスの最も高い y 座標に合わせる */
+  --wave-back-top:   292px;
+  --wave-back-edge:  hsl(var(--art-hue) calc(var(--art-chroma) * var(--tint-sat) * 0.6) 16% / 0.6);
+  --wave-back-base:  hsl(var(--art-hue) calc(var(--art-chroma) * var(--tint-sat) * 0.4) 10% / 0);
+  --wave-front-top:  318px;
+  --wave-front-edge: hsl(var(--art-hue) calc(var(--art-chroma) * var(--tint-sat) * 0.9) 18% / 0.45);
+  --wave-front-base: hsl(var(--art-hue) calc(var(--art-chroma) * var(--tint-sat) * 0.5) 12% / 0);
   --accent: #b68e53;
   --btn-bg: rgba(255, 255, 255, 0.08);
   --btn-active-sat: 39%;
@@ -57,6 +65,34 @@ body { display: flex; flex-direction: column; }
   height: var(--screen-h);
   gap: var(--gap);
   padding: var(--pad);
+  /* 波を .screen の背景と中身の間に描くため、重なり順をこの要素の中に閉じる */
+  isolation: isolate;
+}
+
+/* 波の SVG はマスクとして使う。SVG 側の色は無視され、この background が塗られる */
+.screen::before,
+.screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(var(--wave-edge) var(--wave-top), var(--wave-base));
+  -webkit-mask: var(--wave) center / 100% 100% no-repeat;
+  mask: var(--wave) center / 100% 100% no-repeat;
+}
+
+.screen::before {
+  --wave: url("/static/wave-back.svg");
+  --wave-top: var(--wave-back-top);
+  --wave-edge: var(--wave-back-edge);
+  --wave-base: var(--wave-back-base);
+}
+
+.screen::after {
+  --wave: url("/static/wave-front.svg");
+  --wave-top: var(--wave-front-top);
+  --wave-edge: var(--wave-front-edge);
+  --wave-base: var(--wave-front-base);
 }
 
 .stage {
