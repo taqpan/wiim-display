@@ -8,6 +8,9 @@ const VOLUME_THROTTLE = 200;
 const VOLUME_STEP = 5;
 const WAKE_THROTTLE = 1000;
 
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_FORMAT = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" });
+
 const root = document.documentElement;
 const slots = {};
 document.querySelectorAll("[data-slot]").forEach((el) => {
@@ -22,6 +25,9 @@ let volumeTimer = null;
 let pendingVolume = null;
 let lastWake = 0;
 let pollTimer = null;
+let calendarDate = null;
+// ?now= で時計とカレンダーの表示日時を差し替える。月ごとの行数の違いを確認するため
+let clockOffset = 0;
 
 function setText(name, value) {
   const el = slots[name];
@@ -44,6 +50,7 @@ function setTint(hue, chroma) {
 function render(state) {
   current = state;
 
+  root.dataset.mode = state.mode;
   root.dataset.status = state.status;
   root.dataset.muted = String(state.muted);
   root.dataset.art = state.art ? "yes" : "no";
@@ -114,11 +121,10 @@ async function poll(force) {
   applyState(await response.json(), force);
 }
 
-async function send(action, value) {
-  const body = value === undefined ? { action } : { action, value };
+async function post(path, body) {
   let response;
   try {
-    response = await fetch("/api/command", {
+    response = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -129,6 +135,10 @@ async function send(action, value) {
   if (response.ok) {
     applyLive(await response.json());
   }
+}
+
+function send(action, value) {
+  return post("/api/command", value === undefined ? { action } : { action, value });
 }
 
 // サーバの応答を待たずに見た目を先に動かす。応答が届いたら上書きされる
@@ -224,6 +234,11 @@ const handlers = {
     optimistic({ muted });
     send("mute", muted);
   },
+  mode: () => {
+    const mode = current && current.mode === "clock" ? "music" : "clock";
+    optimistic({ mode });
+    post("/api/mode", { mode });
+  },
   "power-open": () => {
     root.dataset.dialog = "power";
     loadDiag();
@@ -259,9 +274,57 @@ document.querySelectorAll("[data-mock]").forEach((el) => {
   });
 });
 
-if (new URLSearchParams(location.search).has("frame")) {
-  root.dataset.frame = "yes";
+function calendarCell(kind, wday, text) {
+  const el = document.createElement("span");
+  el.dataset.cell = kind;
+  el.dataset.wday = String(wday);
+  el.textContent = text;
+  return el;
 }
 
+function renderCalendar(date) {
+  setText("month", MONTH_FORMAT.format(date));
+  const cells = WEEKDAYS.map((name, wday) => calendarCell("head", wday, name));
+  const first = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  const days = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  for (let wday = 0; wday < first; wday++) {
+    cells.push(calendarCell("blank", wday, ""));
+  }
+  for (let day = 1; day <= days; day++) {
+    const cell = calendarCell("day", (first + day - 1) % 7, String(day));
+    if (day === date.getDate()) {
+      cell.dataset.today = "yes";
+    }
+    cells.push(cell);
+  }
+  slots.calendar.replaceChildren(...cells);
+}
+
+// 毎回現在時刻から描き直すため、NTP 同期などで時計が飛んでも次の更新で追従する
+function tickClock() {
+  const now = new Date(Date.now() + clockOffset);
+  const pad = (n) => String(n).padStart(2, "0");
+  setText("time", `${pad(now.getHours())}:${pad(now.getMinutes())}`);
+
+  const date = now.toDateString();
+  if (date !== calendarDate) {
+    calendarDate = date;
+    renderCalendar(now);
+  }
+  setTimeout(tickClock, 1000 - now.getMilliseconds());
+}
+
+const params = new URLSearchParams(location.search);
+if (params.has("frame")) {
+  root.dataset.frame = "yes";
+}
+if (params.has("now")) {
+  const fixed = new Date(params.get("now")).getTime();
+  if (!Number.isNaN(fixed)) {
+    clockOffset = fixed - Date.now();
+  }
+}
+
+tickClock();
 poll(true);
 pollTimer = setInterval(poll, POLL_INTERVAL);

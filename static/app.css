@@ -31,6 +31,10 @@
   --btn-size: 72px;      --icon-size: 32px;
   --btn-size-lg: 104px;  --icon-size-lg: 48px;
   --btn-size-sm: 64px;   --icon-size-sm: 20px;
+  --clock-size: 128px;
+  --cal-month-size: 26px; --cal-head-size: 16px; --cal-day-size: 22px;
+  --cal-cell: 44px;       --cal-head-h: 28px;
+  --cal-sun: hsl(0 55% 72%);  --cal-sat: hsl(212 55% 74%);
   --dialog-bg: rgba(0, 0, 0, 0.88);  --dialog-btn-bg: #1c1c22;
 }
 
@@ -183,9 +187,9 @@ body { display: flex; flex-direction: column; }
 :root[data-status="play"]  .status::before { content: "Playing"; }
 :root[data-status="pause"] .status::before { content: "Paused"; }
 
-/* 通信状態 */
-:root[data-conn="stale"] .screen { opacity: 0.6; }
-:root[data-conn="down"]  .screen { opacity: 0.35; }
+/* 通信状態。時計は WiiM と無関係に正しいため、楽曲画面でだけ薄くする */
+:root:not([data-mode="clock"])[data-conn="stale"] .screen { opacity: 0.6; }
+:root:not([data-mode="clock"])[data-conn="down"]  .screen { opacity: 0.35; }
 :root[data-conn="down"]  .status { color: var(--accent); }
 :root[data-conn="down"]  .status::before { content: "Offline"; }
 
@@ -237,20 +241,100 @@ body { display: flex; flex-direction: column; }
 [data-action="mute"] { --icon: url("/static/icons/volume.svg"); }
 :root[data-muted="true"] [data-action="mute"] { --icon: url("/static/icons/mute.svg"); }
 
-/* --- 電源 --- */
+/* --- 時計 --- */
 
-.power {
+.clock { display: none; }
+
+:root[data-mode="clock"] .stage,
+:root[data-mode="clock"] .controls { display: none; }
+
+/* 下端は四隅のボタンの分だけ空ける */
+:root[data-mode="clock"] .clock {
+  display: flex;
+  flex: 1;
+  gap: var(--gap);
+  min-height: 0;
+  padding-bottom: var(--btn-size-sm);
+}
+
+.calendar,
+.clock__time {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.calendar {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--row-gap);
+}
+
+.calendar__month {
+  font-size: var(--cal-month-size);
+  text-align: center;
+}
+
+.calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  justify-items: center;
+  font-size: var(--cal-day-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar__grid > * {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cal-cell);
+  height: var(--cal-cell);
+  border-radius: 50%;
+}
+
+.calendar__grid > [data-cell="head"] {
+  height: var(--cal-head-h);
+  font-size: var(--cal-head-size);
+  color: var(--fg-dim);
+}
+
+.calendar__grid > [data-wday="0"] { color: var(--cal-sun); }
+.calendar__grid > [data-wday="6"] { color: var(--cal-sat); }
+
+.calendar__grid > [data-today] {
+  background: var(--btn-active);
+  color: var(--fg);
+}
+
+.clock__time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--clock-size);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* --- 四隅のボタン（電源・モード切替） --- */
+
+.power,
+.mode {
   position: absolute;
-  left: var(--pad);
   bottom: var(--pad);
   width: var(--btn-size-sm);
   height: var(--btn-size-sm);
   background: transparent;
   color: var(--fg-dim);
-  --icon: url("/static/icons/power.svg");
 }
 
-.power::before { width: var(--icon-size-sm); height: var(--icon-size-sm); }
+.power::before,
+.mode::before { width: var(--icon-size-sm); height: var(--icon-size-sm); }
+
+.power { left: var(--pad); --icon: url("/static/icons/power.svg"); }
+
+/* アイコンは切り替え先のモードを示す */
+.mode { right: var(--pad); --icon: url("/static/icons/clock.svg"); }
+:root[data-mode="clock"] .mode { --icon: url("/static/icons/music.svg"); }
 
 :root:not([data-power="yes"]) .power { display: none; }
 

@@ -70,6 +70,7 @@ class Config:
     backlight_level_on: int
     backlight_level_idle: int
     idle_timeout: int
+    auto_clock_delay: float
     allow_power: bool
     dev_mode: bool
     wiim_mock: bool
@@ -98,6 +99,7 @@ def load_config(root: Path | None = None) -> Config:
         backlight_level_on=_int("BACKLIGHT_LEVEL_ON", 255),
         backlight_level_idle=_int("BACKLIGHT_LEVEL_IDLE", 0),
         idle_timeout=_int("IDLE_TIMEOUT", 300),
+        auto_clock_delay=_float("AUTO_CLOCK_DELAY", 10.0),
         allow_power=_bool("ALLOW_POWER", False),
         dev_mode=_bool("DEV_MODE", False),
         wiim_mock=_bool("WIIM_MOCK", False),

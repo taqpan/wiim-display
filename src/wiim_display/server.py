@@ -14,8 +14,9 @@ from . import diag, mock, power
 from .art import ArtCache
 from .backlight import Backlight, IdleController
 from .config import Config, load_config
+from .mode import ModeController
 from .poller import Poller
-from .state import CONN_OK, StateStore
+from .state import CONN_OK, MODES, StateStore
 from .wiim_client import PlayerStatus, WiimClient, WiimUnavailable
 
 logger = logging.getLogger(__name__)
@@ -118,7 +119,7 @@ def state_payload(app: web.Application, fields: dict[str, Any] | None = None) ->
     """
     store: StateStore = app["store"]
     config: Config = app["config"]
-    payload = {"rev": store.rev, **fields} if fields else store.snapshot()
+    payload = {**store.snapshot(), **(fields or {})}
     if config.allow_power:
         payload["power"] = True
     if config.dev_mode:
@@ -170,7 +171,7 @@ async def handle_command(request: web.Request) -> web.Response:
     except CommandError as e:
         raise web.HTTPBadRequest(text=str(e)) from e
 
-    app["idle"].note_activity()
+    note_activity(app)
 
     if client is None:
         apply_optimistic(store, action, value)
@@ -214,8 +215,28 @@ async def handle_power(request: web.Request) -> web.Response:
 
 async def handle_wake(request: web.Request) -> web.Response:
     """画面へのタッチで消灯から復帰する。操作を伴わない接触もここで受ける。"""
-    request.app["idle"].note_activity()
+    note_activity(request.app)
     return web.json_response(state_payload(request.app))
+
+
+async def handle_mode(request: web.Request) -> web.Response:
+    app = request.app
+    try:
+        body = await request.json()
+    except ValueError as e:
+        raise web.HTTPBadRequest(text="body is not valid JSON") from e
+    mode = str(body.get("mode", "")) if isinstance(body, dict) else ""
+    if mode not in MODES:
+        raise web.HTTPBadRequest(text=f"unsupported mode: {mode!r}")
+
+    app["mode"].select(mode)
+    app["idle"].note_activity()
+    return web.json_response(state_payload(app))
+
+
+def note_activity(app: web.Application) -> None:
+    app["idle"].note_activity()
+    app["mode"].note_activity()
 
 
 async def _current_status(client: WiimClient) -> PlayerStatus | None:
@@ -239,13 +260,17 @@ async def _start_background(app: web.Application) -> None:
     config: Config = app["config"]
     art: ArtCache = app["art"]
     await art.start()
-    
+
     if config.dev_mode or config.wiim_mock:
         app["scenarios"] = mock.install(art, config.art_size)
 
     idle: IdleController = app["idle"]
     idle.start()
     app["idle_task"] = asyncio.create_task(idle.run())
+
+    mode: ModeController = app["mode"]
+    mode.start()
+    app["mode_task"] = asyncio.create_task(mode.run())
 
     if config.wiim_mock:
         app["store"].apply(**app["scenarios"][mock.DEFAULT_SCENARIO])
@@ -261,7 +286,7 @@ async def _start_background(app: web.Application) -> None:
 
 
 async def _stop_background(app: web.Application) -> None:
-    for key in ("poller_task", "idle_task"):
+    for key in ("poller_task", "idle_task", "mode_task"):
         task: asyncio.Task[None] | None = app.get(key)
         if task is not None:
             task.cancel()
@@ -294,12 +319,14 @@ def create_app(config: Config, root: Path) -> web.Application:
         config.backlight_level_on,
         config.backlight_level_idle,
     )
+    app["mode"] = ModeController(app["store"], config.auto_clock_delay)
 
     app.router.add_get("/", handle_index)
     app.router.add_get("/healthz", handle_healthz)
     app.router.add_get("/api/state", handle_state)
     app.router.add_post("/api/command", handle_command)
     app.router.add_post("/api/wake", handle_wake)
+    app.router.add_post("/api/mode", handle_mode)
     app.router.add_post("/api/power", handle_power)
     app.router.add_get("/api/diag", handle_diag)
     app.router.add_get("/art/{key}.jpg", handle_art)
